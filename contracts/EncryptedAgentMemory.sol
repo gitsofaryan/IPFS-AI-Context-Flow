@@ -9,17 +9,21 @@ contract EncryptedAgentMemory is GatewayCaller {
     mapping(address => euint64) private agentSecrets;
 
     // Event emitted when a secret is stored
-    event SecretStored(address indexed agent);
+    event MemoryStored(address indexed agent, uint256 timestamp);
+    event MemoryCleared(address indexed agent, uint256 timestamp);
 
     // Storing an encrypted secret. 
-    // The agent sends the encrypted data (einput) and the proof.
     function storeSecret(einput _encryptedSecret, bytes calldata _proof) public {
         euint64 newSecret = TFHE.asEuint64(_encryptedSecret, _proof);
-        
-        // Only the agent can overwrite their own secret, or we just overwrite it
         agentSecrets[msg.sender] = newSecret;
         
-        emit SecretStored(msg.sender);
+        emit MemoryStored(msg.sender, block.timestamp);
+    }
+
+    // Removing a secret from the on-chain state
+    function clearSecret() public {
+        delete agentSecrets[msg.sender];
+        emit MemoryCleared(msg.sender, block.timestamp);
     }
 
     // Agents can verify if their stored secret matches a specific value
