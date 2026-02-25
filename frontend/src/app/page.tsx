@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { StorachaService } from "@/lib/storacha";
 import { UcanService } from "@/lib/ucan";
+import ArchitectureFlow from "./components/ArchitectureFlow";
 
 export default function Home() {
   const [publicMemory, setPublicMemory] = useState("");
@@ -150,9 +151,13 @@ export default function Home() {
         </div>
       </div>
 
+      {/* In-App Visualization */}
+      <ArchitectureFlow />
+
       <footer style={{ marginTop: '5rem', textAlign: 'center', opacity: 0.5, fontSize: '0.8rem' }}>
         Built for PL Hacks | Powered by Storacha, UCAN, and Zama fhEVM
       </footer>
     </div>
   );
 }
+
