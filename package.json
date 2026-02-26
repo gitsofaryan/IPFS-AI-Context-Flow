@@ -8,7 +8,8 @@
     "test:hardhat": "npx hardhat test",
     "server": "npx tsx src/server/index.ts",
     "demo:transport": "npx tsx src/demos/ucan-transport.ts",
-    "demo:api": "npx tsx src/demos/api-gateway-flow.ts"
+    "demo:api": "npx tsx src/demos/api-gateway-flow.ts",
+    "demo:platform": "npx tsx src/demos/public-skills-flow.ts"
   },
   "type": "module",
   "keywords": [],

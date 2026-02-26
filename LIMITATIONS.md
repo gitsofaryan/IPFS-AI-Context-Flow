@@ -84,6 +84,137 @@ There's no automated testing or deployment pipeline. The integration tests run l
 
 **To fix:** Add GitHub Actions workflow for lint → test → compile → deploy.
 
+## 🔴 Planned — Auth & Sharing Mechanism
+
+The current authentication model uses **static Bearer tokens** (base64-encoded UCAN delegations). This works but has critical weaknesses:
+
+- Static tokens can be leaked if Agent B's server is compromised
+- Tokens are replayable — anyone with the token can impersonate Agent B
+- No agent discovery — agents can't find each other without manual coordination
+- Copy-paste provisioning is not automation-friendly
+
+Two approaches are planned to replace this:
+
+---
+
+### Option A: Agent Registry + Challenge-Response Auth ⭐ (Primary)
+
+A smart contract serves as an **on-chain agent phone book**, and API auth uses **challenge-response signing** instead of static tokens.
+
+**Architecture:**
+
+```
+┌─────────────────────────────────────────────────────────┐
+│             SMART CONTRACT: AgentRegistry                │
+│                                                          │
+│  register("ecom-partner-42", did, endpoint)  → sign up  │
+│  grantAccess(agentB, "agent/read", cids[])   → authorize│
+│  revokeAccess(agentB)                        → revoke   │
+│  lookup("ecom-partner-42")                   → discover │
+│  hasAccess(ownerA, agentB, "agent/read")     → check    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Auth Flow (replaces static Bearer tokens):**
+
+```
+Agent B                        API Gateway                  On-Chain
+   │                               │                           │
+   │ POST /auth/challenge           │                           │
+   │ { agentName: "ecom-42" }       │                           │
+   │──────────────────────────────►│                           │
+   │                               │                           │
+   │ { nonce: "a8f3c2..." }        │                           │
+   │◄──────────────────────────────│                           │
+   │                               │                           │
+   │ Sign nonce with private key   │                           │
+   │ (key NEVER leaves Agent B)    │                           │
+   │                               │                           │
+   │ POST /auth/verify              │                           │
+   │ { agentName, nonce, signature }│                           │
+   │──────────────────────────────►│                           │
+   │                               │── hasAccess(A, B)? ─────►│
+   │                               │◄─── ✅ yes ──────────────│
+   │                               │                           │
+   │ { sessionToken: "jwt...", 5m } │                           │
+   │◄──────────────────────────────│                           │
+   │                               │                           │
+   │ GET /memory/:cid              │                           │
+   │ Authorization: Bearer <jwt>    │                           │
+   │──────────────────────────────►│                           │
+   │                               │                           │
+   │ { memory: {...} }             │                           │
+   │◄──────────────────────────────│                           │
+```
+
+**Security properties:**
+- ✅ No static tokens — session JWTs expire in 5 minutes
+- ✅ Private key never leaves Agent B's server
+- ✅ Nonce is one-time-use — replaying a captured signature fails
+- ✅ Instant revocation via `revokeAccess()` on-chain (no waiting for token expiry)
+- ✅ Agent discovery is automated — look up any agent by name
+- ✅ Access grants are auditable — on-chain and transparent
+
+**What needs to be built:**
+- `AgentRegistry.sol` — register, grant, revoke, lookup, hasAccess
+- Challenge-response endpoints on the API server (`/auth/challenge`, `/auth/verify`)
+- Short-lived JWT session tokens (5-minute expiry)
+- Client SDK wrapping the handshake into a single `client.getContext(agentName, cid)` call
+
+---
+
+### Option C: Short-Lived Signed Requests (Lightweight / No Registry)
+
+A simpler alternative where **every API request is self-authenticating** — no registry contract needed, no session tokens.
+
+**Flow:**
+
+```
+Agent B → API:
+  {
+    "did":       "did:key:z6Mk...",
+    "memoryCid": "bafybe...",
+    "timestamp": 1710000000,
+    "nonce":     "a8f3c2d1",
+    "signature": "0x7b2f..."  ← signed with Agent B's private key
+  }
+
+API verifies:
+  1. Signature is valid for the DID's public key
+  2. Timestamp is within last 30 seconds (prevents replay)
+  3. Nonce hasn't been used before (prevents reuse)
+  4. A UCAN delegation exists from memory owner → this DID
+```
+
+**Security properties:**
+- ✅ No static tokens or session management
+- ✅ Every request is unique (timestamp + nonce)
+- ✅ Private key never leaves Agent B's server
+- ✅ Simpler than Option A — no smart contract needed
+- ❌ No agent discovery — Agent B must know Agent A's CIDs upfront
+- ❌ Delegation management is still off-chain (UCAN-based)
+- ❌ No instant revocation — relies on UCAN expiry
+
+**What needs to be built:**
+- Signed request middleware on the API server
+- Nonce tracking (in-memory or Redis) to prevent replay
+- Request signing utility for Agent B's SDK
+
+---
+
+### Comparison
+
+| | Option A (Registry + Challenge-Response) | Option C (Signed Requests) |
+|---|---|---|
+| **Discovery** | ✅ On-chain registry — lookup by name | ❌ Manual — must know CIDs |
+| **Static secrets on Agent B** | ❌ None (only private key in .env) | ❌ None (only private key in .env) |
+| **Replay protection** | ✅ One-time nonces | ✅ Timestamp + nonce |
+| **Revocation** | ✅ Instant via on-chain `revokeAccess()` | ❌ Wait for UCAN expiry |
+| **Complexity** | Higher — needs smart contract | Lower — pure API |
+| **Gas costs** | Yes — registry + grant txns | None |
+| **Best for** | Production, multi-agent ecosystems | Prototypes, simple 1-to-1 sharing |
+
 ---
 
 ## Summary
@@ -98,9 +229,13 @@ There's no automated testing or deployment pipeline. The integration tests run l
 | Auth-gated retrieval | 🟠 Backend only | `AgentRuntime` supports it, frontend doesn't expose it yet |
 | Agent orchestration | ✅ Built | `AgentRuntime` class ties all services together |
 | UCAN revocation | 🟠 Missing | Time-based expiry only |
+| **Auth mechanism** | 🔴 Planned | Static tokens → challenge-response signing (Option A) |
+| **Agent discovery** | 🔴 Planned | On-chain registry with name-based lookup (Option A) |
+| **Signed requests** | 🔴 Planned | Per-request signatures as lightweight alternative (Option C) |
 | Library duplication | 🔵 Workaround | Synced copies, needs monorepo |
 | CI/CD | 🔵 Missing | No automated pipeline |
 
 ---
 
 *This document reflects the state of the project as of February 2026.*
+

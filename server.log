@@ -1,0 +1,23 @@
+
+> agent-db@1.0.0 server
+> npx tsx src/server/index.ts
+
+
+╔══════════════════════════════════════════════════════════════╗
+║           🧠 Agent Context Service — API PROD                ║
+╠══════════════════════════════════════════════════════════════╣
+║                                                              ║
+║  Server running on http://localhost:3001                    ║
+║                                                              ║
+║  Platform Endpoints:                                         ║
+║  ──────────────────────────────────────────────────────────   ║
+║  GET  /api/health              Service health check          ║
+║  GET  /api/skills              Discover public contexts      ║
+║  POST /api/memory              Publish context (public/priv) ║
+║  GET  /api/memory/:cid         Fetch context (UCAN auth)     ║
+║  POST /api/delegations         Submit UCAN Token             ║
+║  GET  /api/delegations/:did    Fetch Tokens for Agent DID    ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
+    
+Uploading memory to Storacha...

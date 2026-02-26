@@ -8,10 +8,10 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
 // ═══════════════════════════════════════════════════════════════════
-// IN-MEMORY STORES (in production, use Redis/DB)
+// REGISTRY & STORAGE (In production, this is a database e.g., PostgreSQL)
 // ═══════════════════════════════════════════════════════════════════
 
-// Stores delegations: delegationId → { base64Token, issuerDid, audienceDid, ability, memoryCids, createdAt }
+// Stores delegations distributed to agents: delegationId → { base64Token, issuerDid, audienceDid, ability, memoryCids, createdAt }
 const delegationStore: Map<string, {
     base64Token: string;
     issuerDid: string;
@@ -21,84 +21,61 @@ const delegationStore: Map<string, {
     createdAt: string;
 }> = new Map();
 
-// Stores memory metadata: cid → { ownerDid, createdAt }
+// Stores memory metadata: cid → { ownerDid, createdAt, visibility, name, description }
 const memoryIndex: Map<string, {
     ownerDid: string;
     createdAt: string;
+    visibility: 'public' | 'private';
+    name?: string;
+    description?: string;
 }> = new Map();
-
-// Track agent identities created via the API (for demo purposes)
-const agentStore: Map<string, any> = new Map();
 
 let delegationCounter = 0;
 
 // ═══════════════════════════════════════════════════════════════════
-// HEALTH CHECK
+// PLATFORM ENDPOINTS
 // ═══════════════════════════════════════════════════════════════════
 
 app.get('/api/health', (_req, res) => {
     res.json({
         status: 'ok',
-        service: 'Agent Context Service',
+        service: 'Agent Context & Skills Registry',
         version: '1.0.0',
         timestamp: new Date().toISOString(),
         stores: {
             delegations: delegationStore.size,
             memories: memoryIndex.size,
-            agents: agentStore.size,
+            publicSkills: Array.from(memoryIndex.values()).filter(m => m.visibility === 'public').length,
         }
     });
 });
 
-// ═══════════════════════════════════════════════════════════════════
-// IDENTITY MANAGEMENT
-// ═══════════════════════════════════════════════════════════════════
-
 /**
- * POST /api/identity
- * Create a new agent identity.
- * Returns: { did, message }
+ * GET /api/skills
+ * Discover public contexts/skills.
  */
-app.post('/api/identity', async (_req, res) => {
-    try {
-        const signer = await UcanService.createIdentity();
-        const did = signer.did();
+app.get('/api/skills', (_req, res) => {
+    const publicSkills = Array.from(memoryIndex.entries())
+        .filter(([_, meta]) => meta.visibility === 'public')
+        .map(([cid, meta]) => ({
+            cid,
+            name: meta.name || 'Unnamed Skill',
+            description: meta.description || '',
+            ownerDid: meta.ownerDid,
+            createdAt: meta.createdAt
+        }));
 
-        // Store the signer so we can use it for delegation later
-        agentStore.set(did, signer);
-
-        res.json({
-            did,
-            message: 'Agent identity created. Use this DID for delegations.',
-        });
-    } catch (err: any) {
-        res.status(500).json({ error: err.message });
-    }
+    res.json({ skills: publicSkills, count: publicSkills.length });
 });
-
-/**
- * GET /api/identity/:did
- * Check if an agent identity exists.
- */
-app.get('/api/identity/:did', (req, res) => {
-    const exists = agentStore.has(req.params.did);
-    res.json({ did: req.params.did, exists });
-});
-
-// ═══════════════════════════════════════════════════════════════════
-// MEMORY MANAGEMENT
-// ═══════════════════════════════════════════════════════════════════
 
 /**
  * POST /api/memory
- * Store agent context. Uploads to Storacha IPFS.
- * Body: { did: string, context: object }
- * Returns: { cid, gatewayUrl }
- *
- * If Storacha account isn't configured, simulates the upload.
+ * Publish / Pin agent context.
+ * In a production architecture, the server acts ONLY as a pinning service or indexer.
+ * It does NOT hold private keys.
  */
 app.post('/api/memory', async (req, res) => {
-    const { did, context } = req.body;
+    const { did, context, visibility = 'private', name, description } = req.body;
 
     if (!did || !context) {
         return res.status(400).json({ error: 'Missing required fields: did, context' });
@@ -117,23 +94,27 @@ app.post('/api/memory', async (req, res) => {
         try {
             cid = await StorachaService.uploadMemory(payload);
         } catch {
-            // Fallback: generate a deterministic simulated CID
-            const hash = Buffer.from(JSON.stringify(payload)).toString('base64').slice(0, 32);
-            cid = `bafybeisim_${hash}`;
+            const crypto = await import('crypto');
+            const hash = crypto.createHash('sha256').update(JSON.stringify(payload)).digest('base64').replace(/[^a-zA-Z0-9]/g, '').toLowerCase().slice(0, 32);
+            cid = `bafybeisim1${hash}`;
             simulated = true;
         }
 
         memoryIndex.set(cid, {
             ownerDid: did,
             createdAt: new Date().toISOString(),
+            visibility,
+            name,
+            description
         });
 
         res.json({
             cid,
             gatewayUrl: StorachaService.getGatewayUrl(cid),
             simulated,
+            visibility,
             message: simulated
-                ? 'Memory stored (simulated — configure Storacha account for live IPFS)'
+                ? 'Memory stored (simulated)'
                 : 'Memory stored on IPFS via Storacha',
         });
     } catch (err: any) {
@@ -143,15 +124,8 @@ app.post('/api/memory', async (req, res) => {
 
 /**
  * GET /api/memory/:cid
- * Retrieve agent memory from IPFS.
- * Requires: Authorization header with Bearer <base64-ucan-token>
- *
- * The token is verified before serving the memory:
- * 1. Decodes the base64 UCAN token
- * 2. Identifies the memory owner from the index
- * 3. Verifies the delegation was issued by the owner
- * 4. Checks the 'agent/read' capability exists and hasn't expired
- * 5. Fetches and returns the memory from IPFS
+ * Fetch memory.
+ * Using UCAN token for auth if private.
  */
 app.get('/api/memory/:cid', async (req, res) => {
     const { cid } = req.params;
@@ -163,11 +137,31 @@ app.get('/api/memory/:cid', async (req, res) => {
         return res.status(404).json({ error: 'Memory not found in index. It may exist on IPFS but is not registered with this service.' });
     }
 
-    // If no auth header, check if requester is the owner
+    // If the memory is public, it can be fetched without authentication
+    if (memoryMeta.visibility === 'public') {
+        try {
+            const memory = await StorachaService.fetchMemory(cid);
+            return res.json({
+                memory,
+                verification: 'public',
+                note: 'Memory is public. No UCAN authentication required.',
+                meta: memoryMeta,
+            });
+        } catch (err: any) {
+            return res.json({
+                memory: null,
+                verification: 'public',
+                note: 'Memory is public but IPFS fetch failed (CID may be simulated).',
+                meta: memoryMeta,
+            });
+        }
+    }
+
+    // If no auth header and memory is private, check if requester is the owner
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return res.status(401).json({
             error: 'Authorization required',
-            hint: 'Provide a UCAN delegation token as: Authorization: Bearer <base64-ucan-token>',
+            hint: 'This context is private. Provide a UCAN delegation token as: Authorization: Bearer <base64-ucan-token>',
             ownerDid: memoryMeta.ownerDid,
         });
     }
@@ -217,80 +211,46 @@ app.get('/api/memory/:cid', async (req, res) => {
     }
 });
 
-// ═══════════════════════════════════════════════════════════════════
-// DELEGATION MANAGEMENT
-// ═══════════════════════════════════════════════════════════════════
-
 /**
- * POST /api/delegate
- * Agent A creates a delegation for Agent B.
- * Body: { issuerDid: string, audienceDid: string, ability?: string, memoryCids?: string[], expirationHours?: number }
- * Returns: { delegationId, base64Token, delegation details }
- *
- * The issuerDid must have been created via POST /api/identity first.
+ * POST /api/delegations
+ * An agent submits a pre-signed UCAN delegation token to grant access to another agent.
+ * The server DOES NOT sign this. The client SDK signs it using the user's wallet/DID.
  */
-app.post('/api/delegate', async (req, res) => {
-    const {
-        issuerDid,
-        audienceDid,
-        ability = 'agent/read',
-        memoryCids = [],
-        expirationHours = 24,
-    } = req.body;
+app.post('/api/delegations', async (req, res) => {
+    const { ucanBase64, memoryCids = [] } = req.body;
 
-    if (!issuerDid || !audienceDid) {
-        return res.status(400).json({ error: 'Missing required fields: issuerDid, audienceDid' });
-    }
-
-    // Get the issuer's signer
-    const issuerSigner = agentStore.get(issuerDid);
-    if (!issuerSigner) {
-        return res.status(404).json({
-            error: `Issuer ${issuerDid} not found. Create it first via POST /api/identity.`
-        });
-    }
-
-    // Get or create audience identity
-    let audienceSigner = agentStore.get(audienceDid);
-    if (!audienceSigner) {
-        // If audience doesn't exist in our store, create a temporary signer for them
-        audienceSigner = await UcanService.createIdentity();
-        agentStore.set(audienceSigner.did(), audienceSigner);
-
-        // Note: the audienceDid provided won't match the generated one
-        // In a real system, Agent B would provide their real DID
+    if (!ucanBase64) {
+        return res.status(400).json({ error: 'Missing required field: ucanBase64' });
     }
 
     try {
-        const delegation = await UcanService.issueDelegation(
-            issuerSigner,
-            audienceSigner,
-            ability,
-            expirationHours
-        );
+        // Decode the UCAN to verify it
+        const delegation = await UcanService.delegationFromBase64(ucanBase64);
 
-        const base64Token = await UcanService.delegationToBase64(delegation);
+        const issuerDid = delegation.issuer.did();
+        const audienceDid = delegation.audience.did();
+        const ability = delegation.capabilities[0]?.can || 'unknown';
+
+        // We verify the delegation is fully valid cryptographically before storing it
+        const verification = UcanService.verifyDelegation(delegation, issuerDid, ability as string);
+        if (!verification.valid) {
+            return res.status(400).json({ error: 'Invalid UCAN delegation', reason: verification.reason });
+        }
 
         const delegationId = `dlg_${++delegationCounter}_${Date.now()}`;
 
         delegationStore.set(delegationId, {
-            base64Token,
-            issuerDid: issuerSigner.did(),
-            audienceDid: audienceSigner.did(),
-            ability,
+            base64Token: ucanBase64,
+            issuerDid,
+            audienceDid,
+            ability: ability as string,
             memoryCids,
             createdAt: new Date().toISOString(),
         });
 
         res.json({
             delegationId,
-            base64Token,
-            issuerDid: issuerSigner.did(),
-            audienceDid: audienceSigner.did(),
-            ability,
-            memoryCids,
-            expiresAt: new Date(Date.now() + expirationHours * 60 * 60 * 1000).toISOString(),
-            message: 'Delegation created. Share the base64Token with Agent B, or they can fetch it via GET /api/delegation/:id',
+            message: 'Delegation successfully registered on the platform.',
         });
     } catch (err: any) {
         res.status(500).json({ error: err.message });
@@ -298,131 +258,25 @@ app.post('/api/delegate', async (req, res) => {
 });
 
 /**
- * GET /api/delegation/:id
- * Agent B fetches their delegation token.
- * Returns: { base64Token, issuerDid, audienceDid, ability, memoryCids }
+ * GET /api/delegations/:audienceDid
+ * An agent queries the platform to see if they have been granted any delegations.
  */
-app.get('/api/delegation/:id', (req, res) => {
-    const entry = delegationStore.get(req.params.id);
+app.get('/api/delegations/:audienceDid', (req, res) => {
+    const { audienceDid } = req.params;
 
-    if (!entry) {
-        return res.status(404).json({ error: 'Delegation not found' });
-    }
-
-    res.json({
-        delegationId: req.params.id,
-        base64Token: entry.base64Token,
-        issuerDid: entry.issuerDid,
-        audienceDid: entry.audienceDid,
-        ability: entry.ability,
-        memoryCids: entry.memoryCids,
-        createdAt: entry.createdAt,
-        hint: 'Use the base64Token as: Authorization: Bearer <base64Token> when calling GET /api/memory/:cid',
-    });
-});
-
-/**
- * GET /api/delegations
- * List all delegations (for debugging/demo).
- */
-app.get('/api/delegations', (_req, res) => {
-    const list = Array.from(delegationStore.entries()).map(([id, entry]) => ({
-        delegationId: id,
-        issuerDid: entry.issuerDid,
-        audienceDid: entry.audienceDid,
-        ability: entry.ability,
-        memoryCids: entry.memoryCids,
-        createdAt: entry.createdAt,
-    }));
+    // Find all delegations where this DID is the audience
+    const list = Array.from(delegationStore.entries())
+        .filter(([_, entry]) => entry.audienceDid === audienceDid)
+        .map(([id, entry]) => ({
+            delegationId: id,
+            issuerDid: entry.issuerDid,
+            ability: entry.ability,
+            memoryCids: entry.memoryCids,
+            createdAt: entry.createdAt,
+            base64Token: entry.base64Token
+        }));
 
     res.json({ delegations: list, count: list.length });
-});
-
-// ═══════════════════════════════════════════════════════════════════
-// FULL FLOW ENDPOINT (Demo)
-// ═══════════════════════════════════════════════════════════════════
-
-/**
- * POST /api/demo/full-flow
- * Demonstrates the complete agent-to-agent communication flow:
- * 1. Creates Agent A and Agent B identities
- * 2. Agent A stores a memory
- * 3. Agent A issues a UCAN delegation to Agent B
- * 4. Agent B verifies the delegation
- * 5. Agent B retrieves the memory using the delegation
- *
- * Body: { context?: object } (optional context to store)
- */
-app.post('/api/demo/full-flow', async (_req, res) => {
-    try {
-        const context = _req.body.context || { status: 'exploring', goal: 'find-water', inventory: ['map', 'compass'] };
-
-        // Step 1: Create identities
-        const agentA = await UcanService.createIdentity();
-        const agentB = await UcanService.createIdentity();
-
-        // Step 2: Store memory (simulated since no Storacha account)
-        const memoryPayload = {
-            agent_id: agentA.did(),
-            timestamp: new Date().toISOString(),
-            context,
-        };
-
-        let cid: string;
-        try {
-            cid = await StorachaService.uploadMemory(memoryPayload);
-        } catch {
-            cid = `bafybeisim_demo_${Date.now()}`;
-        }
-
-        memoryIndex.set(cid, {
-            ownerDid: agentA.did(),
-            createdAt: new Date().toISOString(),
-        });
-
-        // Step 3: Agent A issues delegation to Agent B
-        const delegation = await UcanService.issueDelegation(agentA, agentB, 'agent/read');
-        const base64Token = await UcanService.delegationToBase64(delegation);
-
-        // Step 4: Verify the delegation
-        const verification = UcanService.verifyDelegation(delegation, agentA.did(), 'agent/read');
-
-        // Step 5: Also serialize/deserialize to prove the round-trip works
-        const roundTripped = await UcanService.delegationFromBase64(base64Token);
-        const roundTripVerify = UcanService.verifyDelegation(roundTripped, agentA.did(), 'agent/read');
-
-        res.json({
-            flow: 'complete',
-            step1_identities: {
-                agentA: agentA.did(),
-                agentB: agentB.did(),
-            },
-            step2_memory: {
-                cid,
-                gatewayUrl: StorachaService.getGatewayUrl(cid),
-                payload: memoryPayload,
-            },
-            step3_delegation: {
-                cid: delegation.cid.toString(),
-                base64Token: base64Token.slice(0, 50) + '...',
-                base64TokenLength: base64Token.length,
-                issuer: delegation.issuer.did(),
-                audience: delegation.audience.did(),
-                capability: 'agent/read',
-                expiration: new Date(delegation.expiration * 1000).toISOString(),
-            },
-            step4_verification: verification,
-            step5_roundTrip: {
-                serializeDeserialize: 'success',
-                verification: roundTripVerify,
-            },
-            howToUse: {
-                agentB_retrieval: `curl -H "Authorization: Bearer <full_base64_token>" http://localhost:3001/api/memory/${cid}`,
-            },
-        });
-    } catch (err: any) {
-        res.status(500).json({ error: err.message, stack: err.stack });
-    }
 });
 
 // ═══════════════════════════════════════════════════════════════════
@@ -434,21 +288,19 @@ const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
     console.log(`
 ╔══════════════════════════════════════════════════════════════╗
-║           🧠 Agent Context Service — API Gateway             ║
+║           🧠 Agent Context Service — API PROD                ║
 ╠══════════════════════════════════════════════════════════════╣
 ║                                                              ║
 ║  Server running on http://localhost:${PORT}                    ║
 ║                                                              ║
-║  Endpoints:                                                  ║
+║  Platform Endpoints:                                         ║
 ║  ──────────────────────────────────────────────────────────   ║
 ║  GET  /api/health              Service health check          ║
-║  POST /api/identity            Create agent identity         ║
-║  POST /api/memory              Store agent context           ║
-║  GET  /api/memory/:cid         Retrieve memory (UCAN auth)  ║
-║  POST /api/delegate            Issue UCAN delegation         ║
-║  GET  /api/delegation/:id      Fetch delegation token        ║
-║  GET  /api/delegations         List all delegations          ║
-║  POST /api/demo/full-flow      Run complete demo flow        ║
+║  GET  /api/skills              Discover public contexts      ║
+║  POST /api/memory              Publish context (public/priv) ║
+║  GET  /api/memory/:cid         Fetch context (UCAN auth)     ║
+║  POST /api/delegations         Submit UCAN Token             ║
+║  GET  /api/delegations/:did    Fetch Tokens for Agent DID    ║
 ║                                                              ║
 ╚══════════════════════════════════════════════════════════════╝
     `);

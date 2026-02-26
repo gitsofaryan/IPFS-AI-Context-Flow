@@ -12,6 +12,21 @@ export class UcanService {
     }
 
     /**
+     * Deterministically generates an Ed25519 identity from a user's wallet signature.
+     * This enables "No Visible Auth" — the user signs a message, and that signature
+     * becomes the seed for their Agent's DID.
+     * 
+     * @param signature The hex signature string from the wallet (e.g., MetaMask).
+     * @returns A Signer with a deterministic did:key identity.
+     */
+    static async createIdentityFromSignature(signature: string) {
+        // We need a 32-byte seed for Ed25519. We hash the signature using SHA-256.
+        const crypto = await import('crypto');
+        const hash = crypto.createHash('sha256').update(signature).digest();
+        return await Signer.derive(new Uint8Array(hash));
+    }
+
+    /**
      * Issues a UCAN delegation from one agent to another.
      * @param issuer The signer issuing the permission.
      * @param audience The signer receiving the permission.
