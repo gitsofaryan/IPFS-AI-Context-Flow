@@ -17,9 +17,9 @@ import { UcanService } from '../lib/ucan.js';
 const API_BASE = process.env.API_URL || 'http://localhost:3001';
 
 async function main() {
-    console.log('═══════════════════════════════════════════════════════════');
-    console.log(' 🌍 REAL Prod: Public Context & Skills Platform Demo');
-    console.log('═══════════════════════════════════════════════════════════\n');
+    console.log('═══════════════════════════════════════════════════════════>');
+    console.log(' 🌍 gitsofaryan|anu-sin-theta: Public Context & Skills Platform x IPFS AI');
+    console.log('═══════════════════════════════════════════════════════════>\n');
 
     // Simulated wallet signatures
     const walletSigA = "0x" + "a".repeat(128); // e.g., 64-byte hex signature
