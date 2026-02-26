@@ -25,9 +25,20 @@ export class UcanService {
      * @returns A Signer with a deterministic did:key identity.
      */
     static async createIdentityFromSignature(signature: string) {
-        // We need a 32-byte seed for Ed25519. We hash the signature using SHA-256.
+        return this.createIdentityFromSeed(signature);
+    }
+
+    /**
+     * Deterministically generates an Ed25519 identity from a fixed seed phrase.
+     * This allows agents to load the exact same DID across different servers/restarts.
+     * 
+     * @param seed A high-entropy seed string.
+     * @returns A Signer with a deterministic did:key identity.
+     */
+    static async createIdentityFromSeed(seed: string) {
+        // We need a 32-byte seed for Ed25519. We hash the seed using SHA-256.
         const crypto = await import('crypto');
-        const hash = crypto.createHash('sha256').update(signature).digest();
+        const hash = crypto.createHash('sha256').update(seed).digest();
         return await Signer.derive(new Uint8Array(hash));
     }
 

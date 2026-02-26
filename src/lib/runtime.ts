@@ -36,6 +36,17 @@ export class AgentRuntime {
     }
 
     /**
+     * Initialize an agent deterministically from a seed phrase or environment variable.
+     * This guarantees the agent retains the same identity (DID) across server restarts.
+     * 
+     * @param seed A secure seed string (e.g., process.env.AGENT_SEED)
+     */
+    static async loadFromSeed(seed: string): Promise<AgentRuntime> {
+        const signer = await UcanService.createIdentityFromSeed(seed);
+        return new AgentRuntime(signer);
+    }
+
+    /**
      * Initialize an agent from an existing base64 private key.
      */
     static async fromKey(base64Key: string): Promise<AgentRuntime> {

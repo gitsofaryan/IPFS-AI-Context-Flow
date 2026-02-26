@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { UcanService } from '../src/lib/ucan.js';
+import { AgentRuntime } from '../src/lib/runtime.js';
 
 describe('UCAN Service Cryptography', () => {
     let agentA: any;
@@ -77,5 +78,15 @@ describe('UCAN Service Cryptography', () => {
         const mockSignature2 = '0xabcde12345';
         const identity3 = await UcanService.createIdentityFromSignature(mockSignature2);
         expect(identity3.did()).not.toEqual(identity1.did());
+    });
+
+    it('should allow AgentRuntime to load deterministically from a seed', async () => {
+        const mySecretSeed = 'correct-horse-battery-staple-agent-seed';
+        
+        const agent1 = await AgentRuntime.loadFromSeed(mySecretSeed);
+        const agent2 = await AgentRuntime.loadFromSeed(mySecretSeed);
+        
+        expect(agent1.identity.did()).toEqual(agent2.identity.did());
+        expect(agent1.identity.did().startsWith('did:key:')).toBe(true);
     });
 });

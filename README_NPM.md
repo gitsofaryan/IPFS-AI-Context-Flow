@@ -29,9 +29,14 @@ Agents do not need a username or password. They generate their own Ed25519 keys 
 import { AgentRuntime } from '@arienjain/agent-db';
 
 async function runSwarms() {
-    // Agent identity generated instantly, keys stay offline.
-    const agent = await AgentRuntime.create();
-    console.log("Agent DID:", agent.identity.did());
+    // Option A: Generate a fresh identity (Keys stay offline)
+    const agent1 = await AgentRuntime.create();
+    
+    // Option B: Deterministically load from an Environment Seed Phrase
+    // This allows your agent to survive server restarts and retain its exact DID and memory!
+    const agent2 = await AgentRuntime.loadFromSeed(process.env.AGENT_SEED_PHRASE);
+    
+    console.log("Agent DID:", agent2.identity.did());
 }
 runSwarms();
 ```
@@ -81,6 +86,31 @@ const delegationToken = await agentA.delegateTo(agentB.identity, 'agent/read', 2
 
 // 3. Agent B uses this delegation when fetching the memory!
 const memory = await agentB.fetchMemoryStream(ipnsName, delegationToken.delegation);
+```
+
+### 5. LangChain Integration Plugin
+
+If you build AI agents using LangChain, you can instantly turn your bots into self-sovereign entities with continuous cross-platform persistence by injecting our native memory class. No custom API required.
+
+```typescript
+import { AgentRuntime, AgentDbLangchainMemory } from '@arienjain/agent-db';
+import { ChatOpenAI } from "@langchain/openai";
+import { ConversationChain } from "langchain/chains";
+
+const agent = await AgentRuntime.loadFromSeed(process.env.AGENT_SEED);
+
+// Initialize the Agent DB wrapper
+const memory = new AgentDbLangchainMemory(agent);
+
+const chain = new ConversationChain({
+    llm: new ChatOpenAI({ temperature: 0.9 }),
+    memory: memory
+});
+
+await chain.call({ input: "Hi! My name is Alice." });
+
+// Under the hood, your conversational history is already written to a decentralized IPNS pointer!
+console.log("Memory Stream:", memory.getStreamId());
 ```
 
 ## Production Hardening
