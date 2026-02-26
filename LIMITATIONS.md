@@ -60,14 +60,16 @@ Identity generation (`UcanService.createIdentity()`) works with real Ed25519 key
 
 ## 🟠 Architectural Gaps
 
-### 6. No Memory Retrieval Flow
+### 6. No Authorization-Gated Retrieval Flow
 
-The system demonstrates **storing** memory (upload to IPFS, store secret on-chain) but has **no retrieval or read path**. There's no way to:
-- Fetch agent memory from a CID and parse it back into context
-- Retrieve or decrypt FHE-encrypted secrets from the contract
-- Verify a UCAN token to prove authorization before reading
+Basic retrieval mechanisms **do exist** — `StorachaService.getGatewayUrl(cid)` generates a public IPFS gateway URL for fetching stored memory, and the Solidity contract exposes `verifySecret()` for encrypted value comparison. However, these pieces are **not connected through an authorization layer**. There's no end-to-end flow where:
+- Agent B presents a UCAN delegation token to prove it has `agent/read` permission
+- The token is cryptographically verified before granting access
+- The authorized agent then retrieves and parses the memory from IPFS
 
-**To fix:** Implement `StorachaService.fetchMemory(cid)` for IPFS retrieval. For Zama, implement a gateway decryption request flow. For UCAN, add token verification using `@ucanto/validator`.
+In practice, IPFS CIDs are publicly accessible — anyone with the CID can fetch the data, bypassing the UCAN authorization entirely. The UCAN system issues tokens but never validates them (`@ucanto/validator` is a dependency but unused).
+
+**To fix:** Implement `UcanService.verifyDelegation()` as a gatekeeper before sharing CIDs. For truly private retrieval, consider encrypting the IPFS payload itself (so the CID is public but the content requires a key), and use UCAN to authorize key exchange. For Zama, implement a gateway decryption request flow via `GatewayCaller`.
 
 ---
 
@@ -140,7 +142,7 @@ The single integration test (`test/integration.test.ts`) tests UCAN delegation b
 | Storacha upload (frontend) | 🟡 Mocked | Medium — wire up real client |
 | Zama vault (frontend) | 🟡 Mocked | High — needs wallet + FHE SDK |
 | UCAN delegation (frontend) | 🟡 Partially mocked | Low — backend library is ready |
-| Memory retrieval | 🟠 Missing | Medium |
+| Auth-gated retrieval | 🟠 Partial | Medium — verification + key exchange |
 | Agent orchestration | 🟠 Missing | High |
 | UCAN verification | 🟠 Missing | Medium |
 | FHE gateway decryption | 🟠 Missing | High |
