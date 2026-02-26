@@ -1,3 +1,18 @@
 node_modules/
 .env
 dist/
+
+# Security - never commit secrets
+vault-recovery-key.txt
+*.pem
+*.key
+
+# Build artifacts
+artifacts/
+cache/
+typechain-types/
+compile_error.txt
+
+# OS files
+.DS_Store
+Thumbs.db

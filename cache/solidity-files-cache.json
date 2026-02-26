@@ -1,9 +1,9 @@
 {
   "_format": "hh-sol-cache-2",
   "files": {
-    "D:\\PLDG\\pl hacks\\agent-db\\contracts\\EncryptedAgentMemory.sol": {
-      "lastModificationDate": 1772044633562,
-      "contentHash": "bf1ac5933120cad953e609e6ecff16c0",
+    "/home/dark/code51/AG/IPFS-AI/IPFS-AI-Context-Flow/contracts/EncryptedAgentMemory.sol": {
+      "lastModificationDate": 1772081610195,
+      "contentHash": "16afd4ce45393618d5d4b6ef69f5e313",
       "sourceName": "contracts/EncryptedAgentMemory.sol",
       "solcConfig": {
         "version": "0.8.24",
@@ -31,7 +31,8 @@
       },
       "imports": [
         "fhevm/lib/TFHE.sol",
-        "fhevm/gateway/GatewayCaller.sol"
+        "fhevm/gateway/GatewayCaller.sol",
+        "fhevm/gateway/lib/Gateway.sol"
       ],
       "versionPragmas": [
         "^0.8.24"
@@ -40,8 +41,8 @@
         "EncryptedAgentMemory"
       ]
     },
-    "D:\\PLDG\\pl hacks\\agent-db\\node_modules\\fhevm\\gateway\\GatewayCaller.sol": {
-      "lastModificationDate": 1772043862069,
+    "/home/dark/code51/AG/IPFS-AI/IPFS-AI-Context-Flow/node_modules/fhevm/gateway/GatewayCaller.sol": {
+      "lastModificationDate": 1772081148095,
       "contentHash": "61275e485ac8d9b68a66cc4c5b571bc1",
       "sourceName": "fhevm/gateway/GatewayCaller.sol",
       "solcConfig": {
@@ -79,47 +80,8 @@
         "GatewayCaller"
       ]
     },
-    "D:\\PLDG\\pl hacks\\agent-db\\node_modules\\fhevm\\lib\\TFHE.sol": {
-      "lastModificationDate": 1772043862203,
-      "contentHash": "5e1b4ee3a4cc167d6f59a3e72db2a7f9",
-      "sourceName": "fhevm/lib/TFHE.sol",
-      "solcConfig": {
-        "version": "0.8.24",
-        "settings": {
-          "evmVersion": "paris",
-          "optimizer": {
-            "enabled": false,
-            "runs": 200
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "./Impl.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.24"
-      ],
-      "artifacts": [
-        "Common",
-        "TFHE"
-      ]
-    },
-    "D:\\PLDG\\pl hacks\\agent-db\\node_modules\\fhevm\\gateway\\lib\\Gateway.sol": {
-      "lastModificationDate": 1772043862015,
+    "/home/dark/code51/AG/IPFS-AI/IPFS-AI-Context-Flow/node_modules/fhevm/gateway/lib/Gateway.sol": {
+      "lastModificationDate": 1772081148095,
       "contentHash": "33fc904ca6b2414f34b94ceee9ae74f9",
       "sourceName": "fhevm/gateway/lib/Gateway.sol",
       "solcConfig": {
@@ -158,8 +120,47 @@
         "IKMSVerifier"
       ]
     },
-    "D:\\PLDG\\pl hacks\\agent-db\\node_modules\\fhevm\\lib\\Impl.sol": {
-      "lastModificationDate": 1772043862091,
+    "/home/dark/code51/AG/IPFS-AI/IPFS-AI-Context-Flow/node_modules/fhevm/lib/TFHE.sol": {
+      "lastModificationDate": 1772081148121,
+      "contentHash": "5e1b4ee3a4cc167d6f59a3e72db2a7f9",
+      "sourceName": "fhevm/lib/TFHE.sol",
+      "solcConfig": {
+        "version": "0.8.24",
+        "settings": {
+          "evmVersion": "paris",
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "./Impl.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.24"
+      ],
+      "artifacts": [
+        "Common",
+        "TFHE"
+      ]
+    },
+    "/home/dark/code51/AG/IPFS-AI/IPFS-AI-Context-Flow/node_modules/fhevm/lib/Impl.sol": {
+      "lastModificationDate": 1772081148095,
       "contentHash": "93d7e3908104c93e0038c718f41d7c54",
       "sourceName": "fhevm/lib/Impl.sol",
       "solcConfig": {

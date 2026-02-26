@@ -3,6 +3,7 @@
 /* eslint-disable */
 import type {
   BaseContract,
+  BigNumberish,
   BytesLike,
   FunctionFragment,
   Result,
@@ -24,11 +25,49 @@ import type {
 
 export interface EncryptedAgentMemoryInterface extends Interface {
   getFunction(
-    nameOrSignature: "storeSecret" | "verifySecret"
+    nameOrSignature:
+      | "clearSecret"
+      | "decryptionReady"
+      | "getDecryptedSecret"
+      | "hasSecret"
+      | "onSecretDecrypted"
+      | "requestSecretDecryption"
+      | "storeSecret"
+      | "verifySecret"
   ): FunctionFragment;
 
-  getEvent(nameOrSignatureOrTopic: "SecretStored"): EventFragment;
+  getEvent(
+    nameOrSignatureOrTopic:
+      | "DecryptionRequested"
+      | "MemoryCleared"
+      | "MemoryStored"
+      | "SecretDecrypted"
+  ): EventFragment;
 
+  encodeFunctionData(
+    functionFragment: "clearSecret",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "decryptionReady",
+    values: [AddressLike]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "getDecryptedSecret",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "hasSecret",
+    values: [AddressLike]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "onSecretDecrypted",
+    values: [BigNumberish, BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "requestSecretDecryption",
+    values?: undefined
+  ): string;
   encodeFunctionData(
     functionFragment: "storeSecret",
     values: [BytesLike, BytesLike]
@@ -38,6 +77,27 @@ export interface EncryptedAgentMemoryInterface extends Interface {
     values: [BytesLike, BytesLike]
   ): string;
 
+  decodeFunctionResult(
+    functionFragment: "clearSecret",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "decryptionReady",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "getDecryptedSecret",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(functionFragment: "hasSecret", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "onSecretDecrypted",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "requestSecretDecryption",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(
     functionFragment: "storeSecret",
     data: BytesLike
@@ -48,11 +108,51 @@ export interface EncryptedAgentMemoryInterface extends Interface {
   ): Result;
 }
 
-export namespace SecretStoredEvent {
-  export type InputTuple = [agent: AddressLike];
-  export type OutputTuple = [agent: string];
+export namespace DecryptionRequestedEvent {
+  export type InputTuple = [agent: AddressLike, requestId: BigNumberish];
+  export type OutputTuple = [agent: string, requestId: bigint];
   export interface OutputObject {
     agent: string;
+    requestId: bigint;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
+export namespace MemoryClearedEvent {
+  export type InputTuple = [agent: AddressLike, timestamp: BigNumberish];
+  export type OutputTuple = [agent: string, timestamp: bigint];
+  export interface OutputObject {
+    agent: string;
+    timestamp: bigint;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
+export namespace MemoryStoredEvent {
+  export type InputTuple = [agent: AddressLike, timestamp: BigNumberish];
+  export type OutputTuple = [agent: string, timestamp: bigint];
+  export interface OutputObject {
+    agent: string;
+    timestamp: bigint;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
+export namespace SecretDecryptedEvent {
+  export type InputTuple = [agent: AddressLike, timestamp: BigNumberish];
+  export type OutputTuple = [agent: string, timestamp: bigint];
+  export interface OutputObject {
+    agent: string;
+    timestamp: bigint;
   }
   export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
   export type Filter = TypedDeferredTopicFilter<Event>;
@@ -103,14 +203,30 @@ export interface EncryptedAgentMemory extends BaseContract {
     event?: TCEvent
   ): Promise<this>;
 
+  clearSecret: TypedContractMethod<[], [void], "nonpayable">;
+
+  decryptionReady: TypedContractMethod<[arg0: AddressLike], [boolean], "view">;
+
+  getDecryptedSecret: TypedContractMethod<[], [bigint], "view">;
+
+  hasSecret: TypedContractMethod<[arg0: AddressLike], [boolean], "view">;
+
+  onSecretDecrypted: TypedContractMethod<
+    [requestId: BigNumberish, decryptedValue: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
+  requestSecretDecryption: TypedContractMethod<[], [void], "nonpayable">;
+
   storeSecret: TypedContractMethod<
-    [_encryptedSecret: BytesLike, _proof: BytesLike],
+    [encryptedSecret: BytesLike, inputProof: BytesLike],
     [void],
     "nonpayable"
   >;
 
   verifySecret: TypedContractMethod<
-    [_guessSecret: BytesLike, _proof: BytesLike],
+    [guessSecret: BytesLike, inputProof: BytesLike],
     [bigint],
     "nonpayable"
   >;
@@ -120,38 +236,114 @@ export interface EncryptedAgentMemory extends BaseContract {
   ): T;
 
   getFunction(
+    nameOrSignature: "clearSecret"
+  ): TypedContractMethod<[], [void], "nonpayable">;
+  getFunction(
+    nameOrSignature: "decryptionReady"
+  ): TypedContractMethod<[arg0: AddressLike], [boolean], "view">;
+  getFunction(
+    nameOrSignature: "getDecryptedSecret"
+  ): TypedContractMethod<[], [bigint], "view">;
+  getFunction(
+    nameOrSignature: "hasSecret"
+  ): TypedContractMethod<[arg0: AddressLike], [boolean], "view">;
+  getFunction(
+    nameOrSignature: "onSecretDecrypted"
+  ): TypedContractMethod<
+    [requestId: BigNumberish, decryptedValue: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "requestSecretDecryption"
+  ): TypedContractMethod<[], [void], "nonpayable">;
+  getFunction(
     nameOrSignature: "storeSecret"
   ): TypedContractMethod<
-    [_encryptedSecret: BytesLike, _proof: BytesLike],
+    [encryptedSecret: BytesLike, inputProof: BytesLike],
     [void],
     "nonpayable"
   >;
   getFunction(
     nameOrSignature: "verifySecret"
   ): TypedContractMethod<
-    [_guessSecret: BytesLike, _proof: BytesLike],
+    [guessSecret: BytesLike, inputProof: BytesLike],
     [bigint],
     "nonpayable"
   >;
 
   getEvent(
-    key: "SecretStored"
+    key: "DecryptionRequested"
   ): TypedContractEvent<
-    SecretStoredEvent.InputTuple,
-    SecretStoredEvent.OutputTuple,
-    SecretStoredEvent.OutputObject
+    DecryptionRequestedEvent.InputTuple,
+    DecryptionRequestedEvent.OutputTuple,
+    DecryptionRequestedEvent.OutputObject
+  >;
+  getEvent(
+    key: "MemoryCleared"
+  ): TypedContractEvent<
+    MemoryClearedEvent.InputTuple,
+    MemoryClearedEvent.OutputTuple,
+    MemoryClearedEvent.OutputObject
+  >;
+  getEvent(
+    key: "MemoryStored"
+  ): TypedContractEvent<
+    MemoryStoredEvent.InputTuple,
+    MemoryStoredEvent.OutputTuple,
+    MemoryStoredEvent.OutputObject
+  >;
+  getEvent(
+    key: "SecretDecrypted"
+  ): TypedContractEvent<
+    SecretDecryptedEvent.InputTuple,
+    SecretDecryptedEvent.OutputTuple,
+    SecretDecryptedEvent.OutputObject
   >;
 
   filters: {
-    "SecretStored(address)": TypedContractEvent<
-      SecretStoredEvent.InputTuple,
-      SecretStoredEvent.OutputTuple,
-      SecretStoredEvent.OutputObject
+    "DecryptionRequested(address,uint256)": TypedContractEvent<
+      DecryptionRequestedEvent.InputTuple,
+      DecryptionRequestedEvent.OutputTuple,
+      DecryptionRequestedEvent.OutputObject
     >;
-    SecretStored: TypedContractEvent<
-      SecretStoredEvent.InputTuple,
-      SecretStoredEvent.OutputTuple,
-      SecretStoredEvent.OutputObject
+    DecryptionRequested: TypedContractEvent<
+      DecryptionRequestedEvent.InputTuple,
+      DecryptionRequestedEvent.OutputTuple,
+      DecryptionRequestedEvent.OutputObject
+    >;
+
+    "MemoryCleared(address,uint256)": TypedContractEvent<
+      MemoryClearedEvent.InputTuple,
+      MemoryClearedEvent.OutputTuple,
+      MemoryClearedEvent.OutputObject
+    >;
+    MemoryCleared: TypedContractEvent<
+      MemoryClearedEvent.InputTuple,
+      MemoryClearedEvent.OutputTuple,
+      MemoryClearedEvent.OutputObject
+    >;
+
+    "MemoryStored(address,uint256)": TypedContractEvent<
+      MemoryStoredEvent.InputTuple,
+      MemoryStoredEvent.OutputTuple,
+      MemoryStoredEvent.OutputObject
+    >;
+    MemoryStored: TypedContractEvent<
+      MemoryStoredEvent.InputTuple,
+      MemoryStoredEvent.OutputTuple,
+      MemoryStoredEvent.OutputObject
+    >;
+
+    "SecretDecrypted(address,uint256)": TypedContractEvent<
+      SecretDecryptedEvent.InputTuple,
+      SecretDecryptedEvent.OutputTuple,
+      SecretDecryptedEvent.OutputObject
+    >;
+    SecretDecrypted: TypedContractEvent<
+      SecretDecryptedEvent.InputTuple,
+      SecretDecryptedEvent.OutputTuple,
+      SecretDecryptedEvent.OutputObject
     >;
   };
 }

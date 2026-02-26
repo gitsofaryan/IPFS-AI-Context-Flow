@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "npx tsx run-integration-test.ts",
+    "test:hardhat": "npx hardhat test"
   },
   "type": "module",
   "keywords": [],
