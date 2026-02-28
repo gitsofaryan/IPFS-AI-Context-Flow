@@ -1,21 +1,35 @@
 # Changelog
 
-All notable changes to the Agent Context Service and related components are documented here.
+All notable changes to **Agent DB SDK** are documented here.
 
-## [Unreleased] - 2026-02-26
-
+## [1.3.0] - 2026-03-02
 ### Added
-- **Deterministic Identity (`src/lib/ucan.ts`)**: Added `createIdentityFromSignature` to generate Ed25519 DIDs deterministically from wallet signatures (enabling "No Visible Auth").
-- **Public Skills Registry (`src/server/index.ts`)**: Added `GET /api/skills` endpoint to discover publicly published agent contexts/skills.
-- **Context Visibility (`src/server/index.ts`)**: Updated `POST /api/memory` to accept a `visibility` flag (`public` or `private`), allowing public fetching without UCAN authentication.
-- **Client-Side Delegation (`src/server/index.ts`)**: Added `POST /api/delegations` and `GET /api/delegations/:did` to allow clients to push and retrieve locally signed UCAN tokens, removing server-side signing.
-- **Marketplace Demo (`src/demos/public-skills-flow.ts`)**: Added a new demo script showcasing the public skills discovery and deterministic identity flow.
-- **Demo Script (`package.json`)**: Added `npm run demo:platform` command.
+- **ECIES Encryption (`src/lib/encryption.ts`)**: Implemented ECIES with NIST P-256 for secure, large-payload private memory on IPFS.
+- **File-Based Persistence**: Upgraded `StorachaService` to cache memory blocks in `~/.agent-db/cache`, ensuring data survives agent restarts.
+- **Safe IPNS Concurrency**: Added `syncStream()` in `AgentRuntime` to prevent race conditions during collaborative IPNS updates.
+- **Runtime Schema Validation**: Integrated `zod` into `storePublicMemory()` to enforce data integrity on agent payloads.
+- **Structured Error Handling**: Introduced `ValidationError`, `StorageError`, `AuthenticationError`, and `NetworkError` classes.
+- **Hardening Test Suite**: Added `src/test-persistence.ts`, `src/test-encryption.ts`, and `src/test-dx.ts`.
 
 ### Changed
-- **API Gateway Architecture (`src/server/index.ts`)**: Refactored the server into a production-ready, unprivileged Indexer & IPFS Pinner. It no longer generates or stores private keys.
-- **API Gateway Demo (`src/demos/api-gateway-flow.ts`)**: Updated the demo to perform identity generation and UCAN token signing entirely client-side before interacting with the API.
-- **Documentation (`LIMITATIONS.md`)**: Added architectural proposals for Challenge-Response Auth (Option A), Signed Requests (Option C), and IPFS Payload Encryption for true data sovereignty.
+- **Version Bump**: Released production-hardened SDK v1.3.0.
 
-### Removed
-- **Server-Side Identity Storage (`src/server/index.ts`)**: Removed the `POST /api/identity` endpoint and `agentStore` that centrally held agent private keys and generated random identities.
+## [1.2.0] - 2026-03-01
+### Added
+- **Hackathon Track Alignment**:
+    - **Storacha**: Added `OpenClaw` adapter for persistent agent memory.
+    - **Filecoin**: Deployed `AgentRegistry.sol` to Calibration Testnet for decentralized agent discovery.
+    - **Zama**: Added `ConfidentialFinance.sol` for FHE-based trade verification.
+    - **Lit Protocol**: Integrated Vincent API for autonomous wallet management with guardrails.
+- **Demos**: Added `demo:openclaw`, `demo:filecoin`, `demo:defi`, and `demo:lit`.
+
+## [1.1.0] - 2026-02-28
+### Added
+- **Deterministic Identity**: Gated Ed25519 DIDs behind wallet signatures via `UcanService`.
+- **Public Skills Discovery**: Added endpoints and demos for publishing and finding public agent contexts.
+- **Sovereign Authorization**: Client-side UCAN signing for zero-server-privilege state updates.
+
+## [1.0.0] - 2026-02-20
+### Added
+- **Initial Release**: Core `AgentRuntime` with IPFS storage and UCAN authentication.
+- **LangChain Integration**: First-class memory adapter for LangChain agents.

@@ -1,5 +1,9 @@
 import { StorachaService } from './storacha.js';
 import { UcanService } from './ucan.js';
+import { EncryptionService } from './encryption.js';
+import { AuthenticationError, ValidationError, StorageError, ConcurrencyError, NetworkError } from './errors.js';
+import * as crypto from 'node:crypto';
+import { z } from 'zod';
 
 /**
  * AgentRuntime — Unified orchestration layer that ties together
@@ -75,18 +79,31 @@ export class AgentRuntime {
     /**
      * Store agent context to IPFS via Storacha.
      * @param context The JSON-serializable context object.
+     * @param schema Optional Zod schema for validation.
      * @returns The CID of the stored memory.
      */
-    async storePublicMemory(context: object): Promise<string> {
-        const payload = {
-            agent_id: this.did,
-            timestamp: new Date().toISOString(),
-            context,
-        };
+    async storePublicMemory(context: object, schema?: z.ZodSchema): Promise<string> {
+        try {
+            if (schema) {
+                const result = schema.safeParse(context);
+                if (!result.success) {
+                    throw new ValidationError("Memory payload failed validation", result.error);
+                }
+            }
 
-        const cid = await StorachaService.uploadMemory(payload);
-        this.memoryCids.push(cid);
-        return cid;
+            const payload = {
+                agent_id: this.did,
+                timestamp: new Date().toISOString(),
+                context,
+            };
+
+            const cid = await StorachaService.uploadMemory(payload);
+            this.memoryCids.push(cid);
+            return cid;
+        } catch (err) {
+            if (err instanceof ValidationError) throw err;
+            throw new StorageError(`Failed to store public memory: ${(err as Error).message}`);
+        }
     }
 
     /**
@@ -101,20 +118,95 @@ export class AgentRuntime {
         cid: string,
         delegation?: any
     ): Promise<object | null> {
-        if (delegation) {
-            const expectedIssuer = delegation.issuer.did();
-            const verification = UcanService.verifyDelegation(
-                delegation,
-                expectedIssuer,
-                'agent/read'
-            );
-            if (!verification.valid) {
-                console.error(`Authorization denied: ${verification.reason}`);
-                return null;
+        try {
+            if (delegation) {
+                const expectedIssuer = delegation.issuer.did();
+                const verification = UcanService.verifyDelegation(
+                    delegation,
+                    expectedIssuer,
+                    'agent/read'
+                );
+                if (!verification.valid) {
+                    throw new AuthenticationError(`Authorization denied: ${verification.reason}`);
+                }
             }
+
+            const data = await StorachaService.fetchMemory(cid);
+            if (!data) {
+                throw new StorageError(`Memory CID not found: ${cid}`);
+            }
+            return data;
+        } catch (err) {
+            if (err instanceof AuthenticationError) throw err;
+            if (err instanceof StorageError) throw err;
+            throw new NetworkError(`Failed to retrieve memory: ${(err as Error).message}`);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // PRIVATE MEMORY (ECIES + IPFS)
+    // ═══════════════════════════════════════════════════════════════════
+
+    /**
+     * Derives a stable prime256v1 encryption keypair from the agent's identity.
+     * This uses a signature-based derivation for consistency across restarts.
+     */
+    private async getEncryptionKey(): Promise<{ publicKey: Buffer; privateKey: Buffer }> {
+        // Sign a constant string to get a stable 32-byte seed
+        const seedBuffer = Buffer.from("agent-db-encryption-seed-v1");
+        const signature = await this.signer.signer.sign(seedBuffer);
+        const seed = crypto.createHash('sha256').update(signature).digest();
+        
+        // Use ECDH to get raw keys deterministically from the seed
+        const ecdh = crypto.createECDH('prime256v1');
+        ecdh.setPrivateKey(seed);
+        
+        return {
+            publicKey: ecdh.getPublicKey(),
+            privateKey: ecdh.getPrivateKey()
+        };
+    }
+
+    /**
+     * Encrypts and stores private memory on IPFS.
+     * Only the owner agent can decrypt this.
+     * 
+     * @param context The private data.
+     * @returns The CID of the encrypted payload on IPFS.
+     */
+    async storePrivateMemory(context: object): Promise<string> {
+        const { publicKey } = await this.getEncryptionKey();
+
+        const encryptedPayload = await EncryptionService.encrypt(
+            JSON.stringify(context),
+            publicKey
+        );
+
+        const cid = await StorachaService.uploadMemory({
+            _encrypted: true,
+            _encryptionMethod: 'ECIES-P256-AES256GCM',
+            payload: encryptedPayload
+        });
+
+        return cid;
+    }
+
+    /**
+     * Retrieves and decrypts private memory from IPFS.
+     * 
+     * @param cid The CID of the encrypted memory.
+     * @returns The decrypted JSON object.
+     */
+    async retrievePrivateMemory(cid: string): Promise<object | null> {
+        const data: any = await StorachaService.fetchMemory(cid);
+        if (!data || !data._encrypted || !data.payload) {
+            throw new Error("Invalid private memory payload or not encrypted.");
         }
 
-        return await StorachaService.fetchMemory(cid);
+        const { privateKey } = await this.getEncryptionKey();
+
+        const decryptedBuffer = await EncryptionService.decrypt(data.payload, privateKey);
+        return JSON.parse(decryptedBuffer.toString());
     }
 
     /**
@@ -155,20 +247,39 @@ export class AgentRuntime {
     }
 
     /**
+     * Synchronizes the local stream state with the decentralized network.
+     * Fetches the latest IPNS revision to prevent "stale revision" errors.
+     */
+    async syncStream(): Promise<void> {
+        if (!this.ipnsName) return;
+        
+        const latestRevision = await StorachaService.getLatestRevision(this.ipnsName.toString());
+        if (latestRevision) {
+            this.ipnsRevision = latestRevision;
+        }
+    }
+
+    /**
      * Updates an existing memory stream with new context.
-     * The agent MUST have started a memory stream first.
+     * Hardened: Automatically syncs the latest revision before updating to 
+     * prevent conflicts in multi-agent environments.
+     * 
      * @param newContext The updated memory state.
      * @returns The new underlying IPFS CID it points to.
      */
     async updateMemoryStream(newContext: object): Promise<string> {
-        if (!this.ipnsName || !this.ipnsRevision) {
+        if (!this.ipnsName) {
             throw new Error("Cannot update memory stream: No stream started. Call startMemoryStream() first.");
         }
 
-        // 1. Store the new memory on IPFS
+        // 1. Production Hardening: Sync the latest revision from the network
+        // This prevents race conditions if multiple agents/instances are writing to the same stream.
+        await this.syncStream();
+
+        // 2. Store the new memory on IPFS
         const newCid = await this.storePublicMemory(newContext);
 
-        // 2. Update the IPNS pointer to point to the new CID
+        // 3. Update the IPNS pointer
         this.ipnsRevision = await StorachaService.publishToIpns(this.ipnsName, newCid, this.ipnsRevision);
         
         return newCid;
@@ -226,14 +337,16 @@ export class AgentRuntime {
     /**
      * Verify an incoming delegation token.
      * @param delegation The UCAN delegation to verify.
+     * @param issuerDid The DID of the agent who issued this delegation.
      * @param requiredAbility The capability that must be present.
      * @returns Verification result with { valid, reason? }
      */
     verifyIncoming(
         delegation: any,
+        issuerDid: string,
         requiredAbility: string = 'agent/read'
     ): { valid: boolean; reason?: string } {
-        return UcanService.verifyDelegation(delegation, this.did, requiredAbility);
+        return UcanService.verifyDelegation(delegation, issuerDid, requiredAbility);
     }
 
     /**

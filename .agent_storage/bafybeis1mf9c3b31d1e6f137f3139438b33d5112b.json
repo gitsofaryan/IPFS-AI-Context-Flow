@@ -1,0 +1,11 @@
+{
+  "_encrypted": true,
+  "_encryptionMethod": "ECIES-P256-AES256GCM",
+  "payload": {
+    "iv": "deb0e99117b13eb8ee81beff",
+    "tag": "ad2f8a5a4ae2a7b6100a5201e762c95d",
+    "salt": "10fd266f48f2426c47a163bb5ee0c24f",
+    "ephemeralPublicKey": "3059301306072a8648ce3d020106082a8648ce3d030107034200042f8cc5319dff6ca3bf2f835b3c4f5f3d7bf15ea45c9aff1142c6d3d0d8cde227baca9b897198692342de86f593f83ecc79c69b4308d21e9044920ae62f0bbf6b",
+    "ciphertext": "f48f2ae9236451b59471780a70cfadec164fcc50814978be0c4905ff6708140c40f574f1a15f88c9bb00178098681b2b135aad4d818cc368ea3ddee8e7ba8923c1a3710b02660bdd45eb14bc5bdaa94c60dfbe7ae3ea9e31a290b83ca0f4543d"
+  }
+}

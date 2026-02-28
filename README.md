@@ -8,12 +8,14 @@ Built on **Storacha**, **IPNS**, **UCAN**, and **Zama fhEVM**, Agent DB is an en
 
 ## 🏗️ Platform Architecture
 
-Agent DB is not just a database; it is a decentralized memory and skills registry for autonomous AI swarms. 
+Agent DB is a decentralized memory and sovereignty engine for autonomous AI. It addresses the "Amnesia Bot" problem while ensuring that an agent's internal reasoning remains private and cryptographically secure.
 
-1. **The SDK (`src/lib`)**: Agents include the `@arienjain/agent-db` typescript SDK in their logic. This enables them to generate deterministic Decentalized Identifers (DIDs), pin their evolving context (JSON) directly to IPFS, and issue verifiable delegation tokens (UCAN) offline.
-2. **The Indexing Gateway (`src/server`)**: A centralized caching and discovery index. Agents submit their UCAN delegation tokens here so other agents can discover and fetch them. The Gateway *never* holds private keys; it acts purely as a cryptographically verifiable index.
-3. **The Hive Mind (IPNS)**: Utilizing `@web3-storage/w3name`, agent memory streams are not static. Agents publish to a mutable IPNS pointer, allowing swarms to continuously resolve each other's state without exchanging new links.
-4. **The Agent Vault (Zama FHE)**: Highly sensitive data (passwords, social security numbers) are pushed to the `EncryptedAgentMemory` Solidity contract, protected by Fully Homomorphic Encryption (fhEVM), allowing agents to verify secrets without decrypting them.
+1. **The SDK (`src/lib`)**: Enables agents to generate deterministic DIDs and pin context directly to IPFS (**Verifiable AI Provenance**).
+2. **ECIES Private Vault**: High-security storage for private memory using **ECIES (NIST P-256)** encryption for true data sovereignty.
+3. **The Hive Mind (IPNS)**: Mutable memory streams via IPNS pointers, allowing swarms to continuously resolve each other's state.
+4. **Agent Vault (Zama fhEVM)**: FHE-powered smart contracts for confidential finance and verifiable risk thresholds.
+5. **OpenClaw Adapter**: Native persistence for OpenClaw agents, preventing context loss across device restarts using Storacha.
+6. **Vincent Integration**: Autonomous agent wallet management with programmable guardrails using Lit Protocol.
 
 ---
 
@@ -62,12 +64,35 @@ For data that cannot be public on IPFS, Agent DB leverages Zama's Fully Homomorp
 2.  The FHE payload is submitted to the `EncryptedAgentMemory` contract.
 3.  Secondary agents can verify knowledge of the secret via the FHE Gateway without it ever being decrypted on-chain.
 
-```bash
-# Compile the fhEVM contracts
-npx hardhat compile
+### 3. Running Hackathon Bounty Demos
+We have prepared specific demonstrators for the PL_Genesis bounty tracks. These demos satisfy the core requirements for the **AI & Robotics**, **Crypto**, and **Neurotech** tracks.
 
-# Run the Zama Vault tests
-npm run test:hardhat
+```bash
+# 🤖 AI & Robotics: OpenClaw Persistence (Storacha)
+npm run demo:openclaw
+
+# 🔗 Crypto: Agent Registry on Filecoin Calibration
+npm run demo:filecoin
+
+# ⚖️ Crypto/DeFi: Zama fhEVM Confidential Finance
+npm run demo:defi
+
+# 🛡️ Crypto/KeyMgmt: Lit Protocol Vincent Wallet Logic
+npm run demo:lit
+```
+
+### 🛡️ Production Hardening Proofs
+The system has been hardened for real-world deployments. You can verify the security and resilience features here:
+
+```bash
+# 🔐 Private Vault (ECIES Security Verification)
+npx tsx src/test-encryption.ts
+
+# 💾 Resilience (Handoff & Persistence Verification)
+npx tsx src/test-persistence.ts
+
+# 🛠️ Validation & DX (Zod Schema & Error Handling)
+npx tsx src/test-dx.ts
 ```
 
 ---

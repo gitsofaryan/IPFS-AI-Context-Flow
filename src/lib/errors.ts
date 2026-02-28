@@ -41,3 +41,29 @@ export class ValidationError extends AgentDbError {
         this.details = details;
     }
 }
+/**
+ * Thrown when storage-related operations fail.
+ */
+export class StorageError extends AgentDbError {
+    constructor(message: string) {
+        super(message);
+        this.name = 'StorageError';
+    }
+}
+
+/**
+ * Thrown when a concurrency conflict (e.g., race condition in IPNS update) is detected.
+ */
+export class ConcurrencyError extends AgentDbError {
+    constructor(message: string) {
+        super(message);
+        this.name = 'ConcurrencyError';
+    }
+}
+
+/**
+ * Result type for predictable error handling.
+ */
+export type Result<T, E = Error> = 
+    | { ok: true; value: T }
+    | { ok: false; error: E };

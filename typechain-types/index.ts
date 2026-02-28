@@ -6,6 +6,8 @@ export type { contracts };
 import type * as fhevm from "./fhevm";
 export type { fhevm };
 export * as factories from "./factories";
+export type { AgentRegistry } from "./contracts/AgentRegistry";
+export { AgentRegistry__factory } from "./factories/contracts/AgentRegistry__factory";
 export type { EncryptedAgentMemory } from "./contracts/EncryptedAgentMemory";
 export { EncryptedAgentMemory__factory } from "./factories/contracts/EncryptedAgentMemory__factory";
 export type { IGatewayContract } from "./fhevm/gateway/lib/Gateway.sol/IGatewayContract";

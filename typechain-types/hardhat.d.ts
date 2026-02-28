@@ -14,6 +14,10 @@ import * as Contracts from ".";
 declare module "hardhat/types/runtime" {
   interface HardhatEthersHelpers extends HardhatEthersHelpersBase {
     getContractFactory(
+      name: "AgentRegistry",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.AgentRegistry__factory>;
+    getContractFactory(
       name: "EncryptedAgentMemory",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.EncryptedAgentMemory__factory>;
@@ -35,6 +39,11 @@ declare module "hardhat/types/runtime" {
     ): Promise<Contracts.ITFHEExecutor__factory>;
 
     getContractAt(
+      name: "AgentRegistry",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.AgentRegistry>;
+    getContractAt(
       name: "EncryptedAgentMemory",
       address: string | ethers.Addressable,
       signer?: ethers.Signer
@@ -61,6 +70,10 @@ declare module "hardhat/types/runtime" {
     ): Promise<Contracts.ITFHEExecutor>;
 
     deployContract(
+      name: "AgentRegistry",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.AgentRegistry>;
+    deployContract(
       name: "EncryptedAgentMemory",
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.EncryptedAgentMemory>;
@@ -81,6 +94,11 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.ITFHEExecutor>;
 
+    deployContract(
+      name: "AgentRegistry",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.AgentRegistry>;
     deployContract(
       name: "EncryptedAgentMemory",
       args: any[],
