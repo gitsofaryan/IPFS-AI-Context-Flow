@@ -38,6 +38,20 @@ const cid = await agent.storePublicMemory({
 });
 
 console.log(`Memory safe on IPFS: https://storacha.link/ipfs/${cid}`);
+
+### Option C: The "Private" Way (ECIES Vault)
+For highly sensitive data, use the ECIES-encrypted vault. Only the owner agent can decrypt this.
+
+```typescript
+// Encrypt and store private data (Sovereign Context)
+const secretCid = await agent.storePrivateMemory({
+    private_key_recovery: "...",
+    secret_strategy: "Buy low, sell high"
+});
+
+// To retrieve and decrypt:
+const secretData = await agent.retrievePrivateMemory(secretCid);
+```
 ```
 
 ## Step 3: Enable "Swarm Collaboration" (Delegation)
