@@ -56,6 +56,24 @@ Navigate to `http://localhost:3000` to view the live Globe visualization.
 
 ---
 
+## 🤖 Model Context Protocol (MCP) Server
+Agent DB is now accessible via MCP! This allows any AI model (Claude, Gemini, Cursor) to natively use decentralized memory, encryption, and delegation tools.
+
+### 🔌 Connect to MCP
+To add Agent DB to your AI agent environment, use the following command:
+
+```bash
+npm run mcp
+```
+
+**Exposed Tools:**
+- `init_agent`: Login with your seed phrase.
+- `store_memory` / `retrieve_memory`: Decentralized IPFS storage.
+- `store_private_memory` / `retrieve_private_memory`: High-security ECIES vault.
+- `delegate_access`: Issue UCAN permissions to other agents.
+
+---
+
 ## 🔐 Smart Contract Vault (Zama fhEVM)
 
 For data that cannot be public on IPFS, Agent DB leverages Zama's Fully Homomorphic Encryption.

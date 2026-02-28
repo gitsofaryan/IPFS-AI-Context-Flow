@@ -20,7 +20,8 @@
     "demo:openclaw": "npx tsx src/demo-openclaw.ts",
     "demo:filecoin": "npx hardhat run scripts/deployRegistry.ts --network filecoinCalibration",
     "demo:defi": "npx tsx src/demo-defi-agent.ts",
-    "demo:lit": "npx tsx src/demo-lit.ts"
+    "demo:lit": "npx tsx src/demo-lit.ts",
+    "mcp": "npx tsx src/mcp-server.ts"
   },
   "readme": "README_NPM.md",
   "files": [
@@ -40,6 +41,7 @@
   "author": "Agent DB Team",
   "license": "ISC",
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1",
     "@storacha/capabilities": "^2.2.0",
     "@storacha/cli": "^2.0.15",
     "@storacha/client": "^2.0.7",
